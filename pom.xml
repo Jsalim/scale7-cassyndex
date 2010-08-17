@@ -17,7 +17,7 @@
     <dependency>
       <groupId>org.scale7</groupId>
       <artifactId>scale7-pelops</artifactId>
-      <version>0.902-0.7.0</version>
+      <version>0.903-0.7.0-SNAPSHOT</version>
     </dependency>
     <dependency>
         <groupId>org.slf4j</groupId>
@@ -45,4 +45,17 @@
         </plugins>
     </pluginManagement>
   </build>
+  <distributionManagement>
+      <repository>
+          <id>maven.scale7.org.local</id>
+          <name>Deployment Staging Area</name>
+          <!--
+                 The ${scale7.deploy.dir} is defined in your ~/.m2/settings.xml file and it should
+                 point to the directory that contains the clone of http://github.com/s7/mvnrepo.
+                 e.g. file:///Users/dan/Development/Projects/scale7/mvnrepo
+             -->
+          <url>${scale7.deploy.dir}</url>
+          <layout>default</layout>
+      </repository>
+  </distributionManagement>
 </project>
