@@ -6,7 +6,16 @@
 	<packaging>jar</packaging>
 	<version>1.0-SNAPSHOT</version>
 	<name>Cassyndex - A Library for creating, managing and searching indexes on a Cassandra cluster using either RP or OPP</name>
-	<url>http://maven.apache.org</url>
+	<url>http://github.com/s7</url>
+	<properties>
+        <!--
+           The ${scale7.deploy.dir} should point to the directory that contains the clone of http://github.com/s7/mvnrepo.
+           By default it assumes that it's a sibling of the current project directory.  To change the default value alter
+           your ~/.m2/settings.xml file.
+        -->
+        <scale7.deploy.dir>file://${basedir}/../mvnrepo</scale7.deploy.dir>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 	<dependencies>
 		<dependency>
 			<groupId>junit</groupId>
