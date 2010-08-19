@@ -16,6 +16,23 @@ import static org.scale7.cassandra.pelops.StringHelper.*;
 
 public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 
+	public static class Config extends IndexBase.Config {
+
+		protected boolean fullCaseKeys = true; // normally search is case insensitive, but keys are returned with original case
+
+		public Config(String idxColumnFamily) {
+			this(idxColumnFamily, 2);
+		}
+
+		public Config(String idxColumnFamily, int bucketKeyPrefixLen) {
+			super(idxColumnFamily, bucketKeyPrefixLen);
+		}
+		
+		public void setFullCaseKeys(boolean fullCaseKeys) {
+			this.fullCaseKeys = fullCaseKeys;
+		}
+	};
+	
 	protected CisKeyOnlyIndex(String pelopsPool, Config config) {
 		super(pelopsPool, config);
 	}
@@ -26,13 +43,16 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 		String lcKey= key.toLowerCase();
 		return selector.getColumnCount(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), Selector.newColumnsPredicate(lcKey, lcKey, false, 100), cLevel) == 1;
 	}
-	
+
 	@Override
 	public void writeKey(String key, ConsistencyLevel cLevel) throws Exception {
 		VALIDATE(key);
 		String lcKey= key.toLowerCase();
 		Mutator mutator = Pelops.createMutator(pelopsPool);
-		mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), mutator.newColumn(lcKey, key));
+		if (((CisKeyOnlyIndex.Config)config).fullCaseKeys)
+			mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), mutator.newColumn(lcKey, key));
+		else
+			mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), mutator.newColumn(lcKey, ""));
 		mutator.execute(cLevel);
 	}
 
@@ -44,7 +64,7 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 		mutator.deleteColumn(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), lcKey);
 		mutator.execute(cLevel);
 	}
-	
+
 	@Override
 	public Iterator getIterator(String requiredPrefix, boolean reversed, int maxPageSize, ConsistencyLevel cLevel) throws Exception {
 		VALIDATE(requiredPrefix);
@@ -103,7 +123,7 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 		@Override
 		public boolean hasNext() throws Exception {
 			if (currentPage == null) {
-				firstPage = getPageOfColNamesAsKeys(startColName, stopColName);
+				firstPage = getPageOfKeys(startColName, stopColName);
 				return true;
 			}
 
@@ -123,14 +143,35 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 			String lcLastEntry = currentPage[maxPageSize-1].toLowerCase();
 			Bytes continueFrom = reversed ? Selector.bumpDownColumnName(lcLastEntry, OrderType.UTF8Type)
 					: Selector.bumpUpColumnName(lcLastEntry, OrderType.UTF8Type);
-			currentPage = getPageOfColNamesAsKeys(continueFrom, stopColName);
+			
+			currentPage = getPageOfKeys(continueFrom, stopColName);
+
 			return currentPage;
+		}
+		
+		private String[] getPageOfKeys(Bytes startColName, Bytes stopColName) throws Exception {
+			if (((CisKeyOnlyIndex.Config)config).fullCaseKeys)
+				return getPageOfColValuesAsKeys(startColName, stopColName);
+			
+			return getPageOfColNamesAsKeys(startColName, stopColName);
 		}
 
 		private String[] getPageOfColNamesAsKeys(Bytes startColName, Bytes stopColName) throws Exception {
+			List<Column> columns = getPageOfColumns(startColName, stopColName);
+			List<String> result = new ArrayList<String>(columns.size());
+			for (Column column : columns)
+				result.add(toUTF8(column.name));
+			return result.toArray(new String[]{});
+		}
+
+		private String[] getPageOfColValuesAsKeys(Bytes startColName, Bytes stopColName) throws Exception {
+			return convertColValuesToKeys(getPageOfColumns(startColName, stopColName));
+		}
+
+		private List<Column> getPageOfColumns(Bytes startColName, Bytes stopColName) throws Exception {
 			SlicePredicate predicate = Selector.newColumnsPredicate(startColName, stopColName, reversed, maxPageSize);
 			List<Column> columns = selector.getColumnsFromRow(config.idxColumnFamily, bucketRowKey, predicate, cLevel);
-			return convertColValuesToKeys(columns);
+			return columns;
 		}
 
 		private String[] convertColValuesToKeys(List<Column> columns) {

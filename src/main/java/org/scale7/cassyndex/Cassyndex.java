@@ -6,7 +6,7 @@ public class Cassyndex {
 		return new CsKeyOnlyIndex(pelopsPool, config);
 	}
 
-	public static CisKeyOnlyIndex createCisKeyOnlyIndex(String pelopsPool, IndexBase.Config config) {
+	public static CisKeyOnlyIndex createCisKeyOnlyIndex(String pelopsPool, CisKeyOnlyIndex.Config config) {
 		return new CisKeyOnlyIndex(pelopsPool, config);
 	}
 	

@@ -12,11 +12,9 @@ import org.apache.cassandra.thrift.KsDef;
 import org.scale7.cassandra.pelops.*;
 import org.scale7.cassyndex.Cassyndex;
 import org.scale7.cassyndex.CisKeyOnlyIndex;
-import org.scale7.cassyndex.CsKeyOnlyIndex;
 import org.scale7.cassyndex.FullTextIndex;
 import org.scale7.cassyndex.FullTextIndex.TextTransform;
 import org.scale7.cassyndex.IKeyIterator;
-import org.scale7.cassyndex.IndexBase;
 import org.scale7.portability.SystemProxy;
 import org.slf4j.Logger;
 
@@ -103,7 +101,7 @@ public class App
 	    	Pelops.addPool("main", cluster, "Cassyndex", new OperandPolicy(), policy);
 
     		// Write to our key only index
-	    	CisKeyOnlyIndex index = Cassyndex.createCisKeyOnlyIndex("main", new IndexBase.Config("CisNameIndex"));
+	    	CisKeyOnlyIndex index = Cassyndex.createCisKeyOnlyIndex("main", new CisKeyOnlyIndex.Config("CisNameIndex"));
 	    	logger.info("Writing some entries to key only index...");
 	    	index.writeKey("Dominic Williams", ConsistencyLevel.QUORUM);
 	    	index.writeKey("Matt Grogan", ConsistencyLevel.QUORUM);
@@ -140,7 +138,9 @@ public class App
 
 	    	// Write some entries to our full text index
 	    	String[] blockWords = new String[] {"the", "school", "college", "road", "drive", "street"};
-	    	FullTextIndex fullTextIndex = Cassyndex.createFullTextIndex("main", new FullTextIndex.Config("FullTextAddressIndex", blockWords));
+	    	FullTextIndex.Config config = new FullTextIndex.Config("FullTextAddressIndex");
+	    	config.setBlockWords(blockWords);
+	    	FullTextIndex fullTextIndex = Cassyndex.createFullTextIndex("main", config);
 	    	ConsistencyLevel cLevel = ConsistencyLevel.QUORUM;
 	    	fullTextIndex.addItem("school1", "Fairwater Primary School, Wellwright Road, Cardiff", cLevel);
 	    	fullTextIndex.addItem("school2", "Gabalfa Primary School, Colwill Road, Cardiff", cLevel);
