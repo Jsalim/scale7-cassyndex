@@ -11,7 +11,7 @@ import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.thrift.KsDef;
 import org.scale7.cassandra.pelops.*;
 import org.scale7.cassyndex.Cassyndex;
-import org.scale7.cassyndex.CisKeyOnlyIndex;
+import org.scale7.cassyndex.CaseInsKeyIndex;
 import org.scale7.cassyndex.FullTextIndex;
 import org.scale7.cassyndex.FullTextIndex.TextTransform;
 import org.scale7.cassyndex.IKeyIterator;
@@ -101,7 +101,7 @@ public class App
 	    	Pelops.addPool("main", cluster, "Cassyndex", new OperandPolicy(), policy);
 
     		// Write to our key only index
-	    	CisKeyOnlyIndex index = Cassyndex.createCisKeyOnlyIndex("main", new CisKeyOnlyIndex.Config("CisNameIndex"));
+	    	CaseInsKeyIndex index = Cassyndex.createCisKeyOnlyIndex("main", new CaseInsKeyIndex.Config("CisNameIndex"));
 	    	logger.info("Writing some entries to key only index...");
 	    	index.writeKey("Dominic Williams", ConsistencyLevel.QUORUM);
 	    	index.writeKey("Matt Grogan", ConsistencyLevel.QUORUM);

@@ -3,7 +3,7 @@ package org.scale7.cassyndex;
 import org.scale7.cassandra.pelops.Pelops;
 import org.scale7.cassandra.pelops.Selector;
 
-public abstract class IndexBase {
+public abstract class KeyIndexBase {
 
 	public static class Config {
 		protected int bucketKeyPrefixLen;
@@ -19,11 +19,25 @@ public abstract class IndexBase {
 		}
 	}
 
+	/**
+	 * Reports whether a search can be made on the provided key index given the configuration of the index.
+	 * The minimum key prefix length is determined by the size of the key prefix taken to hash to key range buckets.
+	 * So for example, if your bucket length key prefix is 3, then you can only search on key prefixes of length 3
+	 * or greater.
+	 * @param keyPrefix
+	 * @return
+	 */
+	public boolean isValidKeyPrefix(String keyPrefix) {
+		if (keyPrefix.length() >= config.bucketKeyPrefixLen)
+			return true;
+		return false;
+	}
+
 	protected String pelopsPool;
 	protected Config config;
 	protected Selector selector;
 
-	protected IndexBase(String pelopsPool, Config config) {
+	protected KeyIndexBase(String pelopsPool, Config config) {
 		this.pelopsPool = pelopsPool;
 		this.config = config;
 		selector = Pelops.createSelector(pelopsPool);
@@ -38,7 +52,7 @@ public abstract class IndexBase {
 	}
 
 	protected void VALIDATE(String keyPrefix) throws Exception {
-		if (keyPrefix.length() < config.bucketKeyPrefixLen)
+		if (!isValidKeyPrefix(keyPrefix))
 			throw new Exception("This index only supports searching for keys with prefixes equal to or larger than: " + config.bucketKeyPrefixLen);
 	}
 }

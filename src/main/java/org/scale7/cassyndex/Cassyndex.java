@@ -2,12 +2,12 @@ package org.scale7.cassyndex;
 
 public class Cassyndex {
 
-	public static CsKeyOnlyIndex createCsKeyOnlyIndex(String pelopsPool, IndexBase.Config config) {
-		return new CsKeyOnlyIndex(pelopsPool, config);
+	public static CaseSenKeyIndex createCsKeyOnlyIndex(String pelopsPool, KeyIndexBase.Config config) {
+		return new CaseSenKeyIndex(pelopsPool, config);
 	}
 
-	public static CisKeyOnlyIndex createCisKeyOnlyIndex(String pelopsPool, CisKeyOnlyIndex.Config config) {
-		return new CisKeyOnlyIndex(pelopsPool, config);
+	public static CaseInsKeyIndex createCisKeyOnlyIndex(String pelopsPool, CaseInsKeyIndex.Config config) {
+		return new CaseInsKeyIndex(pelopsPool, config);
 	}
 	
 	public static FullTextIndex createFullTextIndex(String pelopsPool, FullTextIndex.Config config) {

@@ -2,7 +2,7 @@ package org.scale7.cassyndex;
 
 import org.apache.cassandra.thrift.ConsistencyLevel;
 
-public interface IKeyOnlyIndex {
+public interface IKeyIndex {
 	boolean keyExists(String key, ConsistencyLevel cLevel) throws Exception;
 	
 	void writeKey(String key, ConsistencyLevel cLevel) throws Exception;

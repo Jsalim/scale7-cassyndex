@@ -14,9 +14,9 @@ import org.scale7.cassandra.pelops.Selector.OrderType;
 
 import static org.scale7.cassandra.pelops.StringHelper.*;
 
-public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
+public class CaseInsKeyIndex extends KeyIndexBase implements IKeyIndex {
 
-	public static class Config extends IndexBase.Config {
+	public static class Config extends KeyIndexBase.Config {
 
 		protected boolean fullCaseKeys = true; // normally search is case insensitive, but keys are returned with original case
 
@@ -33,7 +33,7 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 		}
 	};
 	
-	protected CisKeyOnlyIndex(String pelopsPool, Config config) {
+	protected CaseInsKeyIndex(String pelopsPool, Config config) {
 		super(pelopsPool, config);
 	}
 
@@ -49,7 +49,7 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 		VALIDATE(key);
 		String lcKey= key.toLowerCase();
 		Mutator mutator = Pelops.createMutator(pelopsPool);
-		if (((CisKeyOnlyIndex.Config)config).fullCaseKeys)
+		if (((CaseInsKeyIndex.Config)config).fullCaseKeys)
 			mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), mutator.newColumn(lcKey, key));
 		else
 			mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(lcKey, config.bucketKeyPrefixLen, 0), mutator.newColumn(lcKey, ""));
@@ -150,7 +150,7 @@ public class CisKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
 		}
 		
 		private String[] getPageOfKeys(Bytes startColName, Bytes stopColName) throws Exception {
-			if (((CisKeyOnlyIndex.Config)config).fullCaseKeys)
+			if (((CaseInsKeyIndex.Config)config).fullCaseKeys)
 				return getPageOfColValuesAsKeys(startColName, stopColName);
 			
 			return getPageOfColNamesAsKeys(startColName, stopColName);

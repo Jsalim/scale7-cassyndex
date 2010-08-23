@@ -14,9 +14,9 @@ import org.scale7.cassandra.pelops.Selector.OrderType;
 
 import static org.scale7.cassandra.pelops.StringHelper.*;
 
-public class CsKeyOnlyIndex extends IndexBase implements IKeyOnlyIndex {
+public class CaseSenKeyIndex extends KeyIndexBase implements IKeyIndex {
 
-	protected CsKeyOnlyIndex(String pelopsPool, Config config) {
+	protected CaseSenKeyIndex(String pelopsPool, Config config) {
 		super(pelopsPool, config);
 	}
 

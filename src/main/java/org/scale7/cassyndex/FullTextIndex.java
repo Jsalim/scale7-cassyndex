@@ -22,12 +22,12 @@ import org.slf4j.Logger;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 
-public class FullTextIndex extends IndexBase {
+public class FullTextIndex extends KeyIndexBase {
 
 	final Logger logger = SystemProxy.getLoggerFromFactory(FullTextIndex.class);
 
 	protected boolean initialized = false;
-	protected CisKeyOnlyIndex termIndex;
+	protected CaseInsKeyIndex termIndex;
 
 	//protected final static String META_DATA_ROW_KEY_ID = "__Meta";
 	//protected final static String META_INIT_MARKER_COLUMN_ID = "Initialized";
@@ -36,7 +36,7 @@ public class FullTextIndex extends IndexBase {
 	protected final static String ENTRY_META_ORIGINAL_TEXT_COL_ID = "OriginalText";
 	protected final static char TERM_TO_ENTRYID_SEPARATOR = (char)(Character.MAX_VALUE-1); // needs to be 1 less than max so appear in key prefix results
 
-	public static class Config extends IndexBase.Config {
+	public static class Config extends KeyIndexBase.Config {
 
 		protected String[] blockWords;
 		protected int matchTermPageSize = 2000;
@@ -64,10 +64,10 @@ public class FullTextIndex extends IndexBase {
 			Arrays.sort(this.blockWords);
 		}
 
-		protected boolean isBlockWord(String word) {
+		protected boolean isBlockWordPrefix(String word) {
 			if (blockWords != null)
 				for (String blockWord : blockWords) {
-					if (blockWord.equals(normalizeWord(word)))
+					if (blockWord.startsWith(normalizeWord(word)))
 						return true;
 				}
 			return false;
@@ -89,9 +89,9 @@ public class FullTextIndex extends IndexBase {
 	protected FullTextIndex(String pelopsPool, Config config) {
 		super(pelopsPool, config);
 
-		CisKeyOnlyIndex.Config cisConfig = new CisKeyOnlyIndex.Config(config.idxColumnFamily, config.bucketKeyPrefixLen);
+		CaseInsKeyIndex.Config cisConfig = new CaseInsKeyIndex.Config(config.idxColumnFamily, config.bucketKeyPrefixLen);
 		cisConfig.setFullCaseKeys(false);
-		termIndex = new CisKeyOnlyIndex(pelopsPool, cisConfig);
+		termIndex = new CaseInsKeyIndex(pelopsPool, cisConfig);
 
 		/*
 		List<Column> columns;
@@ -135,7 +135,7 @@ public class FullTextIndex extends IndexBase {
 		String[] terms = getNormalizedSearchTermsFromText(itemText);
 		for (String term : terms) {
 			// Ignore block words
-			if (((Config)config).isBlockWord(term))
+			if (((Config)config).isBlockWordPrefix(term))
 				continue;
 			// Write compound key
 			String key = createWordToItemIdCompoundKey(term, itemId);
@@ -192,55 +192,57 @@ public class FullTextIndex extends IndexBase {
 		LinkedList<ItemMatchCount> matchesList = new LinkedList<ItemMatchCount>();
 		for (int t=0; t<terms.length; t++) {
 			String term = terms[t];
-			// Iterate through all matching word keys
-			IKeyIterator tokens = termIndex.getIterator(term, false, ((Config)config).matchTermPageSize, cLevel);
-			while (tokens.hasNext()) {
-				String[] tokenToIdKeys = tokens.next();
-				// Process word key page retrieved from Cassandra
-				for (String tokenToIdKey: tokenToIdKeys) {
-					// Split word key into word and term id components
-					int divider = tokenToIdKey.indexOf(TERM_TO_ENTRYID_SEPARATOR);
-					if (divider != -1) {
-						String token = tokenToIdKey.substring(0, divider);
-						String itemId = tokenToIdKey.substring(divider+1);
-						if (token.length() > 0 && itemId.length() > 0) {
-							// Get match count for item
-							ItemMatchCount imc = matchStrengths.get(itemId);
-							if (imc == null) {
-								imc = new ItemMatchCount(itemId);
-								matchStrengths.put(itemId, imc);
-								matchesList.add(imc);
-							}
-							// We only require/hit on single word search terms, not tuple terms
-							if (isOneWordSearchTerm(term)) {
-								// A term can only hit *once* e.g. mi against mike and michael does not equal two hits
-								if (imc.lastMatchingWordIdx != t) {
-									imc.wordTermHits++;
-									imc.lastMatchingWordIdx = t;
-									imc.lastMatchingWordStrength = getTermMatchStrength(token, term);
-									imc.totalMatchStrength += imc.lastMatchingWordStrength;
-								} else {
-									// we don't double count, but take the strongest match
-									int matchStrength = getTermMatchStrength(token, term);
-									if (matchStrength > imc.lastMatchingWordStrength) {
-										imc.totalMatchStrength -= imc.lastMatchingWordStrength;
-										imc.totalMatchStrength += matchStrength;
-										imc.lastMatchingWordStrength = matchStrength;
-									}
+			if (termIndex.isValidKeyPrefix(term)) {
+				// Iterate through all matching word keys
+				IKeyIterator tokens = termIndex.getIterator(term, false, ((Config)config).matchTermPageSize, cLevel);
+				while (tokens.hasNext()) {
+					String[] tokenToIdKeys = tokens.next();
+					// Process word key page retrieved from Cassandra
+					for (String tokenToIdKey: tokenToIdKeys) {
+						// Split word key into word and term id components
+						int divider = tokenToIdKey.indexOf(TERM_TO_ENTRYID_SEPARATOR);
+						if (divider != -1) {
+							String token = tokenToIdKey.substring(0, divider);
+							String itemId = tokenToIdKey.substring(divider+1);
+							if (token.length() > 0 && itemId.length() > 0) {
+								// Get match count for item
+								ItemMatchCount imc = matchStrengths.get(itemId);
+								if (imc == null) {
+									imc = new ItemMatchCount(itemId);
+									matchStrengths.put(itemId, imc);
+									matchesList.add(imc);
 								}
-							} else {
-								// A tuple can only match once as with a term
-								if (imc.lastMatchingTupleIdx != t) {
-									imc.lastMatchingTupleIdx = t;
-									imc.lastMatchingTupleStrength = getTupleTermMatchStrength(token, term);
-									imc.totalMatchStrength += imc.lastMatchingTupleStrength;
+								// We only require/hit on single word search terms, not tuple terms
+								if (isOneWordSearchTerm(term)) {
+									// A term can only hit *once* e.g. mi against mike and michael does not equal two hits
+									if (imc.lastMatchingWordIdx != t) {
+										imc.wordTermHits++;
+										imc.lastMatchingWordIdx = t;
+										imc.lastMatchingWordStrength = getTermMatchStrength(token, term);
+										imc.totalMatchStrength += imc.lastMatchingWordStrength;
+									} else {
+										// we don't double count, but take the strongest match
+										int matchStrength = getTermMatchStrength(token, term);
+										if (matchStrength > imc.lastMatchingWordStrength) {
+											imc.totalMatchStrength -= imc.lastMatchingWordStrength;
+											imc.totalMatchStrength += matchStrength;
+											imc.lastMatchingWordStrength = matchStrength;
+										}
+									}
 								} else {
-									// we don't double count, but take the strongest match
-									int matchStrength = getTupleTermMatchStrength(token, term);
-									if (matchStrength > imc.lastMatchingTupleStrength) {
-										imc.totalMatchStrength -= imc.lastMatchingTupleStrength;
-										imc.totalMatchStrength += matchStrength;
-										imc.lastMatchingTupleStrength = matchStrength;
+									// A tuple can only match once as with a term
+									if (imc.lastMatchingTupleIdx != t) {
+										imc.lastMatchingTupleIdx = t;
+										imc.lastMatchingTupleStrength = getTupleTermMatchStrength(token, term);
+										imc.totalMatchStrength += imc.lastMatchingTupleStrength;
+									} else {
+										// we don't double count, but take the strongest match
+										int matchStrength = getTupleTermMatchStrength(token, term);
+										if (matchStrength > imc.lastMatchingTupleStrength) {
+											imc.totalMatchStrength -= imc.lastMatchingTupleStrength;
+											imc.totalMatchStrength += matchStrength;
+											imc.lastMatchingTupleStrength = matchStrength;
+										}
 									}
 								}
 							}
@@ -253,7 +255,7 @@ public class FullTextIndex extends IndexBase {
 		// Count single word terms in search text
 		int wordTermCount = 0;
 		for (String term : terms)
-			if (isOneWordSearchTerm(term))
+			if (termIndex.isValidKeyPrefix(term) && isOneWordSearchTerm(term))
 				wordTermCount++;
 
 		// Prune items from results that haven't matched all single word terms
@@ -385,7 +387,7 @@ public class FullTextIndex extends IndexBase {
 			String[] words = getNormalizedWordsFromSentence(sentence);
 			String prevWord = null;
 			for (String word : words) {
-				if (!((Config)config).isBlockWord(word))
+				if (!((Config)config).isBlockWordPrefix(word))
 					result.add(word);
 				if (prevWord != null) {
 					String comboTerm = prevWord + " " + word;
@@ -400,7 +402,7 @@ public class FullTextIndex extends IndexBase {
 	// Extract unbroken series of words e.g. sentences
 	protected String[] getSentencesFromText(String text) {
 		Iterable<String> sentences = Splitter
-		.onPattern("['\\!\\(\\)\\{\\}\\=\\[\\]\\;\\:\\|\"\\?/\\<\\>\\.\\,]")
+		.onPattern("[\\!\\(\\)\\{\\}\\=\\[\\]\\;\\:\\|\"\\?/\\<\\>\\.\\,]")
 		.trimResults()
 		.omitEmptyStrings()
 		.split(text);
@@ -413,7 +415,7 @@ public class FullTextIndex extends IndexBase {
 	// Extract array of normalized word from series
 	protected String[] getNormalizedWordsFromSentence(String sentence) {
 		Iterable<String> words = Splitter
-		.onPattern("['\\@\\£\\$\\%\\^\\&\\*\\+\\_\\~\\s]")
+		.onPattern("[\\@\\£\\$\\%\\^\\&\\*\\+\\_\\~\\s]")
 		.trimResults()
 		.omitEmptyStrings()
 		.split(sentence);
@@ -426,7 +428,7 @@ public class FullTextIndex extends IndexBase {
 	}
 
 	protected static String normalizeWord(String word) {
-		String normalized = CharMatcher.INVISIBLE.or(CharMatcher.anyOf("`")).removeFrom(word);
+		String normalized = CharMatcher.INVISIBLE.or(CharMatcher.anyOf("'")).removeFrom(word);
 		normalized = normalized.toLowerCase();
 		return normalized;
 	}
