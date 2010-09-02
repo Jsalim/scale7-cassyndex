@@ -61,7 +61,7 @@ public class App
 		    	columnFamilyDefinition.column_type = ColumnFamilyManager.CFDEF_TYPE_STANDARD;
 		    	columnFamilyDefinition.comparator_type = ColumnFamilyManager.CFDEF_COMPARATOR_UTF8;
 	    		columnFamilyDefinitions.add(columnFamilyDefinition);
-	    		KsDef keyspaceDefinition = new KsDef("Cassyndex", KeyspaceManager.KSDEF_STRATEGY_RACK_UNAWARE, 1, columnFamilyDefinitions);
+	    		KsDef keyspaceDefinition = new KsDef("Cassyndex", KeyspaceManager.KSDEF_STRATEGY_SIMPLE, 1, columnFamilyDefinitions);
 	    		// create keyspace
 	    		KeyspaceManager keyspaceManager = Pelops.createKeyspaceManager(cluster);
 	    		keyspaceManager.addKeyspace(keyspaceDefinition);
