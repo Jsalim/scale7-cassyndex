@@ -10,6 +10,7 @@ import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.thrift.KsDef;
 import org.scale7.cassandra.pelops.*;
+import org.scale7.cassandra.pelops.pool.CommonsBackedPool;
 import org.scale7.cassyndex.Cassyndex;
 import org.scale7.cassyndex.CaseInsKeyIndex;
 import org.scale7.cassyndex.FullTextIndex;
@@ -17,7 +18,6 @@ import org.scale7.cassyndex.FullTextIndex.TextTransform;
 import org.scale7.cassyndex.IKeyIterator;
 import org.scale7.portability.SystemProxy;
 import org.slf4j.Logger;
-
 
 public class App
 {
@@ -44,8 +44,7 @@ public class App
     	final Logger logger = SystemProxy.getLoggerFromFactory(App.class);
     	try {
     		// Describe our cluster
-    		Cluster cluster = new Cluster(new String[] { "127.0.0.1" }, 9160);
-    		cluster.setFramedTransportRequired(false);
+    		Cluster cluster = new Cluster("127.0.0.1", 9160);
 
     		// Get some info about the cluster
     		ClusterManager clusterManager = Pelops.createClusterManager(cluster);
@@ -95,10 +94,8 @@ public class App
     		}
 
     		// Create pool for operations
-    		CachePerNodePool.Policy policy = new CachePerNodePool.Policy();
-    		policy.setDynamicNodeDiscovery(true);
-    		logger.info("Starting connection pool...");
-	    	Pelops.addPool("main", cluster, "Cassyndex", new OperandPolicy(), policy);
+			logger.info("Starting connection pool...");
+			Pelops.addPool("main", new CommonsBackedPool(cluster, "Cassyndex"));
 
     		// Write to our key only index
 	    	CaseInsKeyIndex index = Cassyndex.createCisKeyOnlyIndex("main", new CaseInsKeyIndex.Config("CisNameIndex"));

@@ -10,9 +10,6 @@ import org.scale7.cassandra.pelops.Bytes;
 import org.scale7.cassandra.pelops.Mutator;
 import org.scale7.cassandra.pelops.Pelops;
 import org.scale7.cassandra.pelops.Selector;
-import org.scale7.cassandra.pelops.Selector.OrderType;
-
-import static org.scale7.cassandra.pelops.StringHelper.*;
 
 public class CaseInsKeyIndex extends KeyIndexBase implements IKeyIndex {
 
@@ -27,12 +24,12 @@ public class CaseInsKeyIndex extends KeyIndexBase implements IKeyIndex {
 		public Config(String idxColumnFamily, int bucketKeyPrefixLen) {
 			super(idxColumnFamily, bucketKeyPrefixLen);
 		}
-		
+
 		public void setFullCaseKeys(boolean fullCaseKeys) {
 			this.fullCaseKeys = fullCaseKeys;
 		}
 	};
-	
+
 	protected CaseInsKeyIndex(String pelopsPool, Config config) {
 		super(pelopsPool, config);
 	}
@@ -141,31 +138,21 @@ public class CaseInsKeyIndex extends KeyIndexBase implements IKeyIndex {
 				return currentPage;
 			}
 			String lcLastEntry = currentPage[maxPageSize-1].toLowerCase();
-			Bytes continueFrom = reversed ? Selector.bumpDownColumnName(lcLastEntry, OrderType.UTF8Type)
-					: Selector.bumpUpColumnName(lcLastEntry, OrderType.UTF8Type);
-			
-			currentPage = getPageOfKeys(continueFrom, stopColName);
 
-			return currentPage;
-		}
-		
-		private String[] getPageOfKeys(Bytes startColName, Bytes stopColName) throws Exception {
+			List<Column> columns = selector.getPageOfColumnsFromRow(config.idxColumnFamily, bucketRowKey, lcLastEntry, reversed, maxPageSize, cLevel);
+
 			if (((CaseInsKeyIndex.Config)config).fullCaseKeys)
-				return getPageOfColValuesAsKeys(startColName, stopColName);
-			
-			return getPageOfColNamesAsKeys(startColName, stopColName);
+				return convertColValuesToKeys(columns);
+			else
+				return convertColNamesToKeys(columns);
 		}
 
-		private String[] getPageOfColNamesAsKeys(Bytes startColName, Bytes stopColName) throws Exception {
+		private String[] getPageOfKeys(Bytes startColName, Bytes stopColName) throws Exception {
 			List<Column> columns = getPageOfColumns(startColName, stopColName);
-			List<String> result = new ArrayList<String>(columns.size());
-			for (Column column : columns)
-				result.add(toUTF8(column.name));
-			return result.toArray(new String[]{});
-		}
-
-		private String[] getPageOfColValuesAsKeys(Bytes startColName, Bytes stopColName) throws Exception {
-			return convertColValuesToKeys(getPageOfColumns(startColName, stopColName));
+			if (((CaseInsKeyIndex.Config)config).fullCaseKeys)
+				return convertColValuesToKeys(columns);
+			else
+				return convertColNamesToKeys(columns);
 		}
 
 		private List<Column> getPageOfColumns(Bytes startColName, Bytes stopColName) throws Exception {
@@ -177,7 +164,14 @@ public class CaseInsKeyIndex extends KeyIndexBase implements IKeyIndex {
 		private String[] convertColValuesToKeys(List<Column> columns) {
 			List<String> result = new ArrayList<String>(columns.size());
 			for (Column column : columns)
-				result.add(toUTF8(column.value));
+				result.add(Bytes.fromBytes(column.getValue()).toUTF8());
+			return result.toArray(new String[]{});
+		}
+
+		private String[] convertColNamesToKeys(List<Column> columns) {
+			List<String> result = new ArrayList<String>(columns.size());
+			for (Column column : columns)
+				result.add(Bytes.fromBytes(column.getName()).toUTF8());
 			return result.toArray(new String[]{});
 		}
 	};

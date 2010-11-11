@@ -11,11 +11,11 @@ import java.util.List;
 
 import org.apache.cassandra.thrift.Column;
 import org.apache.cassandra.thrift.ConsistencyLevel;
-import org.apache.cassandra.thrift.NotFoundException;
 import org.scale7.cassandra.pelops.Mutator;
 import org.scale7.cassandra.pelops.Pelops;
 import org.scale7.cassandra.pelops.RowDeletor;
 import org.scale7.cassandra.pelops.Selector;
+import org.scale7.cassandra.pelops.exceptions.NotFoundException;
 import org.scale7.portability.SystemProxy;
 import org.slf4j.Logger;
 

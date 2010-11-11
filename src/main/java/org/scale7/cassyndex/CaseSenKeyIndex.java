@@ -10,9 +10,6 @@ import org.scale7.cassandra.pelops.Bytes;
 import org.scale7.cassandra.pelops.Mutator;
 import org.scale7.cassandra.pelops.Pelops;
 import org.scale7.cassandra.pelops.Selector;
-import org.scale7.cassandra.pelops.Selector.OrderType;
-
-import static org.scale7.cassandra.pelops.StringHelper.*;
 
 public class CaseSenKeyIndex extends KeyIndexBase implements IKeyIndex {
 
@@ -30,7 +27,7 @@ public class CaseSenKeyIndex extends KeyIndexBase implements IKeyIndex {
 	public void writeKey(String key, ConsistencyLevel cLevel) throws Exception {
 		VALIDATE(key);
 		Mutator mutator = Pelops.createMutator(pelopsPool);
-		mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(key, config.bucketKeyPrefixLen, 0), mutator.newColumn(key, new Bytes(null)));
+		mutator.writeColumn(config.idxColumnFamily, getBucketRowKey(key, config.bucketKeyPrefixLen, 0), mutator.newColumn(key, Bytes.EMPTY));
 		mutator.execute(cLevel);
 	}
 
@@ -116,10 +113,10 @@ public class CaseSenKeyIndex extends KeyIndexBase implements IKeyIndex {
 				return currentPage;
 			}
 			String lastEntry = currentPage[maxPageSize-1];
-			Bytes continueFrom = reversed ? Selector.bumpDownColumnName(lastEntry, OrderType.UTF8Type)
-					: Selector.bumpUpColumnName(lastEntry, OrderType.UTF8Type);
-			currentPage = getPageOfColNamesAsKeys(continueFrom, stopColName);
-			return currentPage;
+
+			List<Column> columns = selector.getPageOfColumnsFromRow(config.idxColumnFamily, bucketRowKey, lastEntry, reversed, maxPageSize, cLevel);
+
+			return convertColNamesToKeys(columns);
 		}
 
 		private String[] getPageOfColNamesAsKeys(Bytes startColName, Bytes stopColName) throws Exception {
@@ -131,7 +128,7 @@ public class CaseSenKeyIndex extends KeyIndexBase implements IKeyIndex {
 		private String[] convertColNamesToKeys(List<Column> columns) {
 			List<String> result = new ArrayList<String>(columns.size());
 			for (Column column : columns)
-				result.add(toUTF8(column.name));
+				result.add(Bytes.fromBytes(column.getName()).toUTF8());
 			return result.toArray(new String[]{});
 		}
 	};
